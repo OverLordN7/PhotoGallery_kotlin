@@ -1,30 +1,38 @@
 package com.example.photogallery_kotlin
 
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
+import android.widget.ImageView
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProviders
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+
 
 private const val TAG = "PhotoGalleryFragment"
 
 class PhotoGalleryFragment: Fragment() {
     private lateinit var photoGalleryViewModel: PhotoGalleryViewModel
     private lateinit var photoRecyclerView: RecyclerView
+    private lateinit var thumbnailDownloader: ThumbnailDownloader<PhotoHolder>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-       photoGalleryViewModel =
+        retainInstance = true
+
+        photoGalleryViewModel =
            ViewModelProviders.of(this).get(PhotoGalleryViewModel::class.java)
+
+        thumbnailDownloader = ThumbnailDownloader()
+        lifecycle.addObserver(thumbnailDownloader)
+
 
 
     }
@@ -52,20 +60,30 @@ class PhotoGalleryFragment: Fragment() {
         )
     }
 
-    private class PhotoHolder(itemTextView: TextView): RecyclerView.ViewHolder(itemTextView) {
-        val bindtitle: (CharSequence) -> Unit = itemTextView::setText
+    override fun onDestroy() {
+        super.onDestroy()
+        lifecycle.removeObserver(thumbnailDownloader)
     }
 
-    private class PhotoAdapter(private val galleryItems: List<GalleryItem>):
+    private class PhotoHolder(private val itemImageView: ImageView): RecyclerView.ViewHolder(itemImageView) {
+        val bindDrawable: (Drawable) -> Unit = itemImageView::setImageDrawable
+    }
+
+    private inner class PhotoAdapter(private val galleryItems: List<GalleryItem>):
         RecyclerView.Adapter<PhotoHolder>(){
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PhotoHolder {
-            val textView = TextView(parent.context)
-            return PhotoHolder(textView)
+            val view = layoutInflater.inflate(R.layout.list_item_gallery,parent,false) as ImageView
+            return PhotoHolder(view)
         }
 
         override fun onBindViewHolder(holder: PhotoHolder, position: Int) {
             val galleryItem = galleryItems[position]
-            holder.bindtitle(galleryItem.title)
+            val placeHolder: Drawable = ContextCompat.getDrawable(
+                requireContext(),
+                R.drawable.bill_up_close)?:ColorDrawable()
+
+            holder.bindDrawable(placeHolder)
+
         }
 
         override fun getItemCount(): Int = galleryItems.size
@@ -75,4 +93,6 @@ class PhotoGalleryFragment: Fragment() {
     companion object {
         fun newInstance() = PhotoGalleryFragment()
     }
+
+
 }
