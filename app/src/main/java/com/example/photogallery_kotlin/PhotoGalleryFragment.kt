@@ -1,8 +1,10 @@
 package com.example.photogallery_kotlin
 
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.os.Handler
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -30,8 +32,14 @@ class PhotoGalleryFragment: Fragment() {
         photoGalleryViewModel =
            ViewModelProviders.of(this).get(PhotoGalleryViewModel::class.java)
 
-        thumbnailDownloader = ThumbnailDownloader()
-        lifecycle.addObserver(thumbnailDownloader)
+        val responseHandler = Handler()
+        thumbnailDownloader =
+            ThumbnailDownloader(responseHandler) { photoHolder, bitmap ->
+                val drawable = BitmapDrawable(resources, bitmap)
+                photoHolder.bindDrawable(drawable)
+            }
+
+        lifecycle.addObserver(thumbnailDownloader.fragmentLifecycleObserver)
 
 
 
@@ -42,10 +50,16 @@ class PhotoGalleryFragment: Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+
+        viewLifecycleOwner.lifecycle.addObserver(
+            thumbnailDownloader.viewLifecycleObserver
+        )
+
         val view = inflater.inflate(R.layout.fragment_photo_gallery, container,false)
 
         photoRecyclerView = view.findViewById(R.id.photo_recycler_view)
         photoRecyclerView.layoutManager = GridLayoutManager(context,3)
+
 
         return view
     }
@@ -60,9 +74,14 @@ class PhotoGalleryFragment: Fragment() {
         )
     }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+        viewLifecycleOwner.lifecycle.removeObserver(thumbnailDownloader.viewLifecycleObserver)
+    }
+
     override fun onDestroy() {
         super.onDestroy()
-        lifecycle.removeObserver(thumbnailDownloader)
+        lifecycle.removeObserver(thumbnailDownloader.fragmentLifecycleObserver)
     }
 
     private class PhotoHolder(private val itemImageView: ImageView): RecyclerView.ViewHolder(itemImageView) {
@@ -72,7 +91,9 @@ class PhotoGalleryFragment: Fragment() {
     private inner class PhotoAdapter(private val galleryItems: List<GalleryItem>):
         RecyclerView.Adapter<PhotoHolder>(){
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PhotoHolder {
-            val view = layoutInflater.inflate(R.layout.list_item_gallery,parent,false) as ImageView
+            val view = layoutInflater.inflate(R.layout.list_item_gallery,
+                parent,
+                false) as ImageView
             return PhotoHolder(view)
         }
 
@@ -83,6 +104,7 @@ class PhotoGalleryFragment: Fragment() {
                 R.drawable.bill_up_close)?:ColorDrawable()
 
             holder.bindDrawable(placeHolder)
+            thumbnailDownloader.queueThumbnail(holder,galleryItem.url)
 
         }
 
