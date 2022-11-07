@@ -1,12 +1,33 @@
 package com.example.photogallery_kotlin
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.*
+import retrofit2.http.Query
 
-class PhotoGalleryViewModel: ViewModel() {
+class PhotoGalleryViewModel(private val app: Application): AndroidViewModel(app) {
     val galleryItemLiveData: LiveData<List<GalleryItem>>
 
+    val searchTerm: String
+        get() = mutableSearchTerm.value ?: ""
+
+    private val flicktFetchr = FlickrFetchr()
+    private val mutableSearchTerm = MutableLiveData<String>()
+
+
     init {
-        galleryItemLiveData = FlickrFetchr().fetchPhotos()
+        mutableSearchTerm.value = QueryPreferences().getStoredQuery(app)
+        galleryItemLiveData = Transformations.switchMap(mutableSearchTerm){ searchTerm->
+            if(searchTerm.isBlank()){
+                flicktFetchr.fetchPhotos()
+            }else{
+                flicktFetchr.searchPhotos(searchTerm)
+            }
+
+        }
+    }
+
+    fun fetchPhotos(query: String = " "){
+        QueryPreferences().setStoredQuery(app,query)
+        mutableSearchTerm.value = query
     }
 }
